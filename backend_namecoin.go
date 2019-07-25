@@ -11,8 +11,9 @@ import (
 	"encoding/asn1"
 	"encoding/hex"
 	"encoding/pem"
+	"io"
 	"io/ioutil"
-	"log"
+	logpkg "log"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -25,6 +26,20 @@ import (
 
 	"github.com/namecoin/pkcs11mod"
 )
+
+func getLogOutput() io.Writer {
+	debug := os.Getenv("DEBUG")
+	switch debug {
+	case "", "0":
+		return ioutil.Discard
+	default:
+		return os.Stderr
+	}
+}
+
+var logOutput = getLogOutput()
+
+var log = logpkg.New(logOutput, "[ncp11] ", logpkg.Lshortfile)
 
 type certObject struct {
 	cert  *x509.Certificate
