@@ -11,8 +11,8 @@ import (
 	"encoding/asn1"
 	"encoding/hex"
 	"encoding/pem"
-	"log"
 	"io/ioutil"
+	"log"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -27,41 +27,41 @@ import (
 )
 
 type certObject struct {
-	cert *x509.Certificate
+	cert  *x509.Certificate
 	class uint
 }
 
 type session struct {
-	backend *BackendNamecoin
-	slotID uint
+	backend           *BackendNamecoin
+	slotID            uint
 	ckbiSessionHandle pkcs11.SessionHandle
-	isDistrustSlot bool
-	isRestrictSlot bool
-	certs chan *certObject
-	domain string
-	template []*pkcs11.Attribute
-	objects []*certObject // The ObjectHandle is calculated as the index in this slice + 1
+	isDistrustSlot    bool
+	isRestrictSlot    bool
+	certs             chan *certObject
+	domain            string
+	template          []*pkcs11.Attribute
+	objects           []*certObject // The ObjectHandle is calculated as the index in this slice + 1
 	// TODO: make object handles unique per token, not just unique per session.
 	// TODO: delete object handles that are outdated, so that we can be guaranteed that revocation works
 }
 
 type BackendNamecoin struct {
-	manufacturer string
-	description string
-	version pkcs11.Version
-	slotPositive uint
-	slotNegativeDistrust []uint // index is Namecoin slot - 1; value is CKBI slot
-	slotNegativeRestrict []uint // index is Namecoin slot - len(slotNegativeDistrust) - 1; value is CKBI slot
-	sessions map[pkcs11.SessionHandle]*session
-	sessionMutex sync.RWMutex // Used for the sessions var
-	ckbiBackend *pkcs11.Ctx
-	ckbiPath string
-	ckbiRestrictCert *x509.Certificate
-	ckbiRestrictCertPEM string
-	ckbiRestrictPrivPEM string
+	manufacturer          string
+	description           string
+	version               pkcs11.Version
+	slotPositive          uint
+	slotNegativeDistrust  []uint // index is Namecoin slot - 1; value is CKBI slot
+	slotNegativeRestrict  []uint // index is Namecoin slot - len(slotNegativeDistrust) - 1; value is CKBI slot
+	sessions              map[pkcs11.SessionHandle]*session
+	sessionMutex          sync.RWMutex // Used for the sessions var
+	ckbiBackend           *pkcs11.Ctx
+	ckbiPath              string
+	ckbiRestrictCert      *x509.Certificate
+	ckbiRestrictCertPEM   string
+	ckbiRestrictPrivPEM   string
 	enableImpersonateCKBI bool
-	enableDistrustCKBI bool
-	enableRestrictCKBI bool
+	enableDistrustCKBI    bool
+	enableRestrictCKBI    bool
 }
 
 func NewBackendNamecoin() *BackendNamecoin {
@@ -83,15 +83,15 @@ func NewBackendNamecoin() *BackendNamecoin {
 	}
 
 	return &BackendNamecoin{
-		manufacturer: "Namecoin",
-		description: "Namecoin TLS Certificate Trust",
-		version: pkcs11.Version{0, 0},
-		slotPositive: 0,
-		sessions: map[pkcs11.SessionHandle]*session{},
-		ckbiPath: ckbiPath, // TODO: make this a configurable option
-		enableImpersonateCKBI: true, // TODO: make this a configurable option
-		enableDistrustCKBI: false, // TODO: make this a configurable option
-		enableRestrictCKBI: true, // TODO: make this a configurable option
+		manufacturer:          "Namecoin",
+		description:           "Namecoin TLS Certificate Trust",
+		version:               pkcs11.Version{0, 0},
+		slotPositive:          0,
+		sessions:              map[pkcs11.SessionHandle]*session{},
+		ckbiPath:              ckbiPath, // TODO: make this a configurable option
+		enableImpersonateCKBI: true,     // TODO: make this a configurable option
+		enableDistrustCKBI:    false,    // TODO: make this a configurable option
+		enableRestrictCKBI:    true,     // TODO: make this a configurable option
 	}
 }
 
@@ -170,7 +170,7 @@ func (b *BackendNamecoin) GetSlotList(tokenPresent bool) ([]uint, error) {
 
 		for _, restrictSlot := range ckbiRestrictResult {
 			b.slotNegativeRestrict = append(b.slotNegativeRestrict, restrictSlot)
-			result = append(result, uint(len(b.slotNegativeDistrust) + len(b.slotNegativeRestrict)))
+			result = append(result, uint(len(b.slotNegativeDistrust)+len(b.slotNegativeRestrict)))
 		}
 	}
 
@@ -212,7 +212,7 @@ func (b *BackendNamecoin) GetSlotInfo(slotID uint) (pkcs11.SlotInfo, error) {
 			return ckbiSlotInfo, err
 		}
 
-		isDistrustSlot := slotID - 1 < uint(len(b.slotNegativeDistrust))
+		isDistrustSlot := slotID-1 < uint(len(b.slotNegativeDistrust))
 		isRestrictSlot := !isDistrustSlot
 
 		if isDistrustSlot {
@@ -226,8 +226,8 @@ func (b *BackendNamecoin) GetSlotInfo(slotID uint) (pkcs11.SlotInfo, error) {
 
 	slotInfo := pkcs11.SlotInfo{
 		SlotDescription: b.description,
-		ManufacturerID: b.manufacturer,
-		Flags: pkcs11.CKF_TOKEN_PRESENT,
+		ManufacturerID:  b.manufacturer,
+		Flags:           pkcs11.CKF_TOKEN_PRESENT,
 		HardwareVersion: b.version,
 		FirmwareVersion: b.version,
 	}
@@ -248,7 +248,7 @@ func (b *BackendNamecoin) GetTokenInfo(slotID uint) (pkcs11.TokenInfo, error) {
 			return ckbiTokenInfo, err
 		}
 
-		isDistrustSlot := slotID - 1 < uint(len(b.slotNegativeDistrust))
+		isDistrustSlot := slotID-1 < uint(len(b.slotNegativeDistrust))
 		isRestrictSlot := !isDistrustSlot
 
 		if isDistrustSlot {
@@ -261,24 +261,24 @@ func (b *BackendNamecoin) GetTokenInfo(slotID uint) (pkcs11.TokenInfo, error) {
 	}
 
 	tokenInfo := pkcs11.TokenInfo{
-		Label: b.description,
-		ManufacturerID: b.manufacturer,
-		Model: "ncp11",
-		SerialNumber: "1",
-		Flags: pkcs11.CKF_WRITE_PROTECTED,
-		MaxSessionCount: 0, // CK_EFFECTIVELY_INFINITE from pkcs11 spec (not in miekg/pkcs11)
-		SessionCount: ^uint(0), // CK_UNAVAILABLE_INFORMATION from pkcs11 spec (not in miekg/pkcs11)
-		MaxRwSessionCount: ^uint(0), // CK_UNAVAILABLE_INFORMATION from pkcs11 spec (not in miekg/pkcs11)
-		RwSessionCount: ^uint(0), // CK_UNAVAILABLE_INFORMATION from pkcs11 spec (not in miekg/pkcs11)
-		MaxPinLen: ^uint(0), // highest possible uint
-		MinPinLen: 0,
-		TotalPublicMemory: ^uint(0), // CK_UNAVAILABLE_INFORMATION from pkcs11 spec (not in miekg/pkcs11)
-		FreePublicMemory: ^uint(0), // CK_UNAVAILABLE_INFORMATION from pkcs11 spec (not in miekg/pkcs11)
+		Label:              b.description,
+		ManufacturerID:     b.manufacturer,
+		Model:              "ncp11",
+		SerialNumber:       "1",
+		Flags:              pkcs11.CKF_WRITE_PROTECTED,
+		MaxSessionCount:    0,        // CK_EFFECTIVELY_INFINITE from pkcs11 spec (not in miekg/pkcs11)
+		SessionCount:       ^uint(0), // CK_UNAVAILABLE_INFORMATION from pkcs11 spec (not in miekg/pkcs11)
+		MaxRwSessionCount:  ^uint(0), // CK_UNAVAILABLE_INFORMATION from pkcs11 spec (not in miekg/pkcs11)
+		RwSessionCount:     ^uint(0), // CK_UNAVAILABLE_INFORMATION from pkcs11 spec (not in miekg/pkcs11)
+		MaxPinLen:          ^uint(0), // highest possible uint
+		MinPinLen:          0,
+		TotalPublicMemory:  ^uint(0), // CK_UNAVAILABLE_INFORMATION from pkcs11 spec (not in miekg/pkcs11)
+		FreePublicMemory:   ^uint(0), // CK_UNAVAILABLE_INFORMATION from pkcs11 spec (not in miekg/pkcs11)
 		TotalPrivateMemory: ^uint(0), // CK_UNAVAILABLE_INFORMATION from pkcs11 spec (not in miekg/pkcs11)
-		FreePrivateMemory: ^uint(0), // CK_UNAVAILABLE_INFORMATION from pkcs11 spec (not in miekg/pkcs11)
-		HardwareVersion: b.version,
-		FirmwareVersion: b.version,
-		UTCTime: "",
+		FreePrivateMemory:  ^uint(0), // CK_UNAVAILABLE_INFORMATION from pkcs11 spec (not in miekg/pkcs11)
+		HardwareVersion:    b.version,
+		FirmwareVersion:    b.version,
+		UTCTime:            "",
 	}
 
 	return tokenInfo, nil
@@ -316,15 +316,15 @@ func (b *BackendNamecoin) ckbiOpenSession(slotID uint, flags uint) (pkcs11.Sessi
 		return 0, err
 	}
 
-	isDistrustSlot := slotID - 1 < uint(len(b.slotNegativeDistrust))
+	isDistrustSlot := slotID-1 < uint(len(b.slotNegativeDistrust))
 	isRestrictSlot := !isDistrustSlot
 
 	newSession := session{
-		backend: b,
-		slotID: slotID,
+		backend:           b,
+		slotID:            slotID,
 		ckbiSessionHandle: ckbiHandle,
-		isDistrustSlot: isDistrustSlot,
-		isRestrictSlot: isRestrictSlot,
+		isDistrustSlot:    isDistrustSlot,
+		isRestrictSlot:    isRestrictSlot,
 	}
 
 	b.sessionMutex.Lock()
@@ -340,19 +340,19 @@ func (b *BackendNamecoin) OpenSession(slotID uint, flags uint) (pkcs11.SessionHa
 		return b.ckbiOpenSession(slotID, flags)
 	}
 
-	if flags & pkcs11.CKF_RW_SESSION != 0 {
+	if flags&pkcs11.CKF_RW_SESSION != 0 {
 		// only read-only sessions are supported.
 		log.Printf("OpenSession: CKR_TOKEN_WRITE_PROTECTED\n")
 		return 0, pkcs11.Error(pkcs11.CKR_TOKEN_WRITE_PROTECTED)
 	}
-	if flags & pkcs11.CKF_SERIAL_SESSION == 0 {
+	if flags&pkcs11.CKF_SERIAL_SESSION == 0 {
 		log.Printf("OpenSession: CKR_SESSION_PARALLEL_NOT_SUPPORTED\n")
 		return 0, pkcs11.Error(pkcs11.CKR_SESSION_PARALLEL_NOT_SUPPORTED)
 	}
 
 	newSession := session{
 		backend: b,
-		slotID: b.slotPositive,
+		slotID:  b.slotPositive,
 	}
 
 	b.sessionMutex.Lock()
@@ -507,7 +507,7 @@ func (b *BackendNamecoin) GetAttributeValue(sh pkcs11.SessionHandle, oh pkcs11.O
 		return ckbiResult, nil
 	}
 
-	co := s.objects[oh - 1]
+	co := s.objects[oh-1]
 	cert := co.cert
 
 	results := make([]*pkcs11.Attribute, len(a))
@@ -527,7 +527,7 @@ func (b *BackendNamecoin) GetAttributeValue(sh pkcs11.SessionHandle, oh pkcs11.O
 				fingerprintArray := sha256.Sum256(cert.Raw)
 				hexFingerprint := strings.ToUpper(hex.EncodeToString(fingerprintArray[:]))
 
-				results[i] = pkcs11.NewAttribute(attr.Type, cert.Subject.CommonName + " " + hexFingerprint)
+				results[i] = pkcs11.NewAttribute(attr.Type, cert.Subject.CommonName+" "+hexFingerprint)
 			}
 		} else if attr.Type == pkcs11.CKA_VALUE {
 			results[i] = pkcs11.NewAttribute(attr.Type, cert.Raw)
@@ -960,7 +960,7 @@ func (b *BackendNamecoin) FindObjects(sh pkcs11.SessionHandle, max int) ([]pkcs1
 	var ok bool
 
 	for len(result) < max {
-		co, ok = <- s.certs
+		co, ok = <-s.certs
 		if !ok {
 			break
 		}
@@ -1045,12 +1045,12 @@ func (s *session) lookupCerts(dest chan *certObject) {
 		}
 
 		dest <- &certObject{
-			cert: cert,
+			cert:  cert,
 			class: pkcs11.CKO_CERTIFICATE,
 		}
 
 		dest <- &certObject{
-			cert: cert,
+			cert:  cert,
 			class: pkcs11.CKO_NSS_TRUST,
 		}
 	}
@@ -1061,7 +1061,7 @@ func (s *session) lookupCerts(dest chan *certObject) {
 func (s *session) lookupEmptyList(dest chan *certObject) {
 	if s.backend.enableImpersonateCKBI {
 		dest <- &certObject{
-			cert: &x509.Certificate{},
+			cert:  &x509.Certificate{},
 			class: pkcs11.CKO_NSS_BUILTIN_ROOT_LIST,
 		}
 	}
@@ -1070,7 +1070,7 @@ func (s *session) lookupEmptyList(dest chan *certObject) {
 		s.backend.obtainRestrictCA()
 
 		dest <- &certObject{
-			cert: s.backend.ckbiRestrictCert,
+			cert:  s.backend.ckbiRestrictCert,
 			class: pkcs11.CKO_CERTIFICATE,
 		}
 	}
@@ -1123,7 +1123,7 @@ func (b *BackendNamecoin) obtainRestrictCA() {
 			}
 
 			restrictCertPem := pem.EncodeToMemory(&pem.Block{
-				Type: "CERTIFICATE",
+				Type:  "CERTIFICATE",
 				Bytes: block.Bytes,
 			})
 			b.ckbiRestrictCertPEM = string(restrictCertPem)
@@ -1131,7 +1131,7 @@ func (b *BackendNamecoin) obtainRestrictCA() {
 
 		if block.Type == "EC PRIVATE KEY" {
 			restrictPrivPem := pem.EncodeToMemory(&pem.Block{
-				Type: "EC PRIVATE KEY",
+				Type:  "EC PRIVATE KEY",
 				Bytes: block.Bytes,
 			})
 			b.ckbiRestrictPrivPEM = string(restrictPrivPem)
@@ -1141,7 +1141,7 @@ func (b *BackendNamecoin) obtainRestrictCA() {
 
 func (b *BackendNamecoin) crossSignCKBI(in []byte) []byte {
 	inPEM := pem.EncodeToMemory(&pem.Block{
-		Type: "CERTIFICATE",
+		Type:  "CERTIFICATE",
 		Bytes: in,
 	})
 	inPEMString := string(inPEM)

@@ -7,7 +7,7 @@ const (
 	// Browser directory, so we check there for a CKBI library.  It is
 	// unknown whether this heuristic works on other OS's or other
 	// browsers.
-	filenameCKBIReplaceSelf = "./nssckbi.dll"
+	filenameCKBIReplaceSelf   = "./nssckbi.dll"
 	filenameCKBIReplaceTarget = "./nssckbi-namecoin-target.dll"
 
 	// Used for system-wide applications.  TODO: This needs to be modified
